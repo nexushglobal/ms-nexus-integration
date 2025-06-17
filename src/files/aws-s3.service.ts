@@ -129,11 +129,19 @@ export class AwsS3Service {
     folder: string = 'images',
   ): Promise<S3UploadResponse> {
     // Validar que sea una imagen
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('El archivo debe ser una imagen');
-    }
 
-    return this.uploadFile(file, folder);
+    try {
+      if (!file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('El archivo debe ser una imagen');
+      }
+
+      return this.uploadFile(file, folder);
+    } catch (error) {
+      this.logger.error(`Error uploading image: ${error.message}`, error.stack);
+      throw new BadRequestException(
+        `Error al subir la imagen: ${error.message}`,
+      );
+    }
   }
 
   private validateFile(file: Express.Multer.File): void {
