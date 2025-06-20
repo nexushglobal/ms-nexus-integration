@@ -48,7 +48,6 @@ export class AwsS3Service {
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
-        // Removido: ACL: 'public-read', - Esta línea causa el error
         Metadata: {
           originalName: file.originalname,
           uploadedAt: new Date().toISOString(),
@@ -128,11 +127,10 @@ export class AwsS3Service {
     file: Express.Multer.File,
     folder: string = 'images',
   ): Promise<S3UploadResponse> {
-    // Validar que sea una imagen
-
     try {
-      if (!file.mimetype.startsWith('image/')) {
-        throw new BadRequestException('El archivo debe ser una imagen');
+      // Validación mejorada para imágenes
+      if (!this.isImageFile(file)) {
+        throw new BadRequestException('El archivo debe ser una imagen válida');
       }
 
       return this.uploadFile(file, folder);
@@ -142,6 +140,79 @@ export class AwsS3Service {
         `Error al subir la imagen: ${error.message}`,
       );
     }
+  }
+
+  private isImageFile(file: Express.Multer.File): boolean {
+    // Verificar mimetype
+    const validMimeTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ];
+
+    // Si el mimetype está correcto, validar
+    if (validMimeTypes.includes(file.mimetype)) {
+      return true;
+    }
+
+    // Si el mimetype es incorrecto, verificar por extensión de archivo
+    const extension = file.originalname.toLowerCase().split('.').pop();
+    const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+    if (validExtensions.includes(extension || '')) {
+      this.logger.warn(
+        `File ${file.originalname} has incorrect mimetype ${file.mimetype} but valid extension ${extension}`,
+      );
+      return true;
+    }
+
+    // Verificar signature del archivo (magic numbers) como último recurso
+    if (this.hasImageSignature(file.buffer)) {
+      this.logger.warn(
+        `File ${file.originalname} detected as image by signature despite mimetype ${file.mimetype}`,
+      );
+      return true;
+    }
+
+    return false;
+  }
+
+  private hasImageSignature(buffer: Buffer): boolean {
+    if (!buffer || buffer.length < 8) {
+      return false;
+    }
+
+    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+    if (
+      buffer
+        .subarray(0, 8)
+        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    ) {
+      return true;
+    }
+
+    // JPEG signature: FF D8 FF
+    if (buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) {
+      return true;
+    }
+
+    // GIF signature: 47 49 46 38 (GIF8)
+    if (buffer.subarray(0, 4).equals(Buffer.from([0x47, 0x49, 0x46, 0x38]))) {
+      return true;
+    }
+
+    // WebP signature: starts with "RIFF" and contains "WEBP"
+    if (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).equals(Buffer.from('RIFF', 'ascii')) &&
+      buffer.subarray(8, 12).equals(Buffer.from('WEBP', 'ascii'))
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   private validateFile(file: Express.Multer.File): void {
@@ -173,6 +244,7 @@ export class AwsS3Service {
       typeof file.mimetype !== 'string' ||
       !allowedMimeTypes.includes(String(file.mimetype))
     ) {
+      // Para archivos generales, ser más estricto
       throw new BadRequestException('Tipo de archivo no permitido');
     }
   }
