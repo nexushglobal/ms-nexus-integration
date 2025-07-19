@@ -238,6 +238,18 @@ export class AwsS3Service {
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'pdf',
+      'doc',
+      'docx',
+      'txt',
+      'csv',
+      'xlsx',
+      'xls',
     ];
 
     if (

@@ -53,7 +53,6 @@ export class FilesController {
   @MessagePattern({ cmd: 'integration.files.uploadImage' })
   async uploadImage(@Payload() data: UploadFileDto) {
     const { file, folder = 'images' } = data;
-    console.log('Uploading image:', file.originalname, 'to folder:', folder);
 
     const multerFile: Express.Multer.File = {
       fieldname: 'file',
