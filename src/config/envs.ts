@@ -5,7 +5,7 @@ interface EnvVars {
   PORT: number;
   NODE_ENV: 'development' | 'production' | 'test';
   NATS_SERVERS: string;
-  PA_TOKEN_PERUAPIS: string;
+  DECOLECTA_API_TOKEN: string;
 
   AWS_SES_SMTP_USERNAME: string;
   AWS_SES_SMTP_PASSWORD: string;
@@ -28,10 +28,10 @@ const envsSchema = joi
       .string()
       .valid('development', 'production', 'test')
       .default('development'),
-    PA_TOKEN_PERUAPIS: joi
+    DECOLECTA_API_TOKEN: joi
       .string()
       .required()
-      .description('Token for PeruAPIs service'),
+      .description('Token for Decolecta API service'),
     AWS_SES_SMTP_USERNAME: joi
       .string()
       .required()

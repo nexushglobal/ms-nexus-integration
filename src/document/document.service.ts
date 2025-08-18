@@ -2,14 +2,20 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 
 import { envs } from 'src/config/envs';
+import {
+  DecolectaDniResponse,
+  DecolectaRucResponse,
+  DecolectaErrorResponse,
+} from './interfaces/decolecta-response.interface';
+import { DocumentResponseDto } from './dto/document-response.dto';
 
 @Injectable()
 export class DocumentService {
   constructor() {}
-  async validateDocument(documentType: string, numberDocument: string) {
-    const url = 'https://api.peruapis.com/v1/' + documentType;
-    const token = envs.PA_TOKEN_PERUAPIS;
-
+  async validateDocument(
+    documentType: string,
+    numberDocument: string,
+  ): Promise<DocumentResponseDto> {
     // const res: { isDuplicate: boolean } = await firstValueFrom(
     //   this.client.send(
     //     { cmd: 'clientes.cliente.verify_document' },
@@ -29,36 +35,70 @@ export class DocumentService {
     }
 
     try {
+      let url: string;
+      if (documentType === 'dni') {
+        url = `https://api.decolecta.com/v1/reniec/dni?numero=${numberDocument}`;
+      } else if (documentType === 'ruc') {
+        url = `https://api.decolecta.com/v1/sunat/ruc?numero=${numberDocument}`;
+      } else {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Tipo de documento no válido. Use "dni" o "ruc"',
+        });
+      }
+
       const response = await fetch(url, {
-        method: 'POST',
+        method: 'GET',
         headers: {
+          Authorization: `Bearer ${envs.DECOLECTA_API_TOKEN}`,
           'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + token,
         },
-        body: JSON.stringify({ document: numberDocument }),
       });
+
       if (!response.ok) {
+        const errorData: DecolectaErrorResponse = await response.json();
         throw new RpcException({
-          status: HttpStatus.NOT_FOUND,
-          message: `No se ecnontró el documento ${numberDocument}`,
+          status:
+            response.status === 400 || response.status === 422
+              ? HttpStatus.BAD_REQUEST
+              : HttpStatus.NOT_FOUND,
+          message: `No se encontró el documento ${numberDocument}: ${errorData.error}`,
         });
       }
 
-      const data: { success: boolean } = await response.json();
-
-      if (data.success === false) {
-        throw new RpcException({
-          status: HttpStatus.NOT_FOUND,
-          message: `No se ecnontró el documento ${numberDocument}`,
-        });
+      if (documentType === 'dni') {
+        const dniData: DecolectaDniResponse = await response.json();
+        return this.formatDniResponse(dniData);
+      } else {
+        const rucData: DecolectaRucResponse = await response.json();
+        return this.formatRucResponse(rucData);
       }
-
-      return data;
     } catch (err) {
+      if (err instanceof RpcException) {
+        throw err;
+      }
       throw new RpcException({
-        status: err.error.status || HttpStatus.INTERNAL_SERVER_ERROR,
-        message: err.error.message || 'Error al validar el documento',
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al validar el documento',
       });
     }
+  }
+
+  private formatDniResponse(data: DecolectaDniResponse): DocumentResponseDto {
+    return {
+      dni: data.document_number,
+      mothers_lastname: data.second_last_name,
+      fathers_lastname: data.first_last_name,
+      fullname: data.full_name,
+    };
+  }
+
+  private formatRucResponse(data: DecolectaRucResponse): DocumentResponseDto {
+    return {
+      ruc: data.numero_documento,
+      razon_social: data.razon_social,
+      direccion: data.direccion,
+      estado: data.estado,
+    };
   }
 }
