@@ -30,9 +30,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalInterceptors(
-    new ServiceIdentifierInterceptor(SERVICE_NAME),
-  );
+  app.useGlobalInterceptors(new ServiceIdentifierInterceptor(SERVICE_NAME));
 
   await app.listen();
   console.log(
