@@ -78,6 +78,7 @@ export class DocumentService {
   private formatDniResponse(data: DecolectaDniResponse): DocumentResponseDto {
     return {
       dni: data.document_number,
+      firstname: this.toTitleCase(data.first_name),
       mothers_lastname: this.toTitleCase(data.second_last_name),
       fathers_lastname: this.toTitleCase(data.first_last_name),
       fullname: this.toTitleCase(data.full_name),
