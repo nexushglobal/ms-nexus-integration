@@ -3,6 +3,7 @@ export class DocumentResponseDto {
   ruc?: string;
 
   // Campos de DNI
+  firstname?: string;
   mothers_lastname?: string;
   fathers_lastname?: string;
   fullname?: string;
