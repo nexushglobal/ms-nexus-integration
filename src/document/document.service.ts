@@ -16,16 +16,7 @@ export class DocumentService {
     documentType: string,
     numberDocument: string,
   ): Promise<DocumentResponseDto> {
-    // const res: { isDuplicate: boolean } = await firstValueFrom(
-    //   this.client.send(
-    //     { cmd: 'clientes.cliente.verify_document' },
-    //     {
-    //       documentType,
-    //       numberDocument,
-    //     },
-    //   ),
-    // );
-    const res: { isDuplicate: boolean } = { isDuplicate: false }; // Simulación de respuesta
+    const res: { isDuplicate: boolean } = { isDuplicate: false };
 
     if (res.isDuplicate) {
       throw new RpcException({
@@ -87,9 +78,9 @@ export class DocumentService {
   private formatDniResponse(data: DecolectaDniResponse): DocumentResponseDto {
     return {
       dni: data.document_number,
-      mothers_lastname: this.toTitleCase(data.second_last_name),
-      fathers_lastname: this.toTitleCase(data.first_last_name),
-      fullname: this.toTitleCase(data.full_name),
+      mothers_lastname: data.second_last_name,
+      fathers_lastname: data.first_last_name,
+      fullname: data.full_name,
     };
   }
 
