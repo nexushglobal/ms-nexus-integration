@@ -87,18 +87,34 @@ export class DocumentService {
   private formatDniResponse(data: DecolectaDniResponse): DocumentResponseDto {
     return {
       dni: data.document_number,
-      mothers_lastname: data.second_last_name,
-      fathers_lastname: data.first_last_name,
-      fullname: data.full_name,
+      mothers_lastname: this.toTitleCase(data.second_last_name),
+      fathers_lastname: this.toTitleCase(data.first_last_name),
+      fullname: this.toTitleCase(data.full_name),
     };
   }
 
   private formatRucResponse(data: DecolectaRucResponse): DocumentResponseDto {
     return {
       ruc: data.numero_documento,
-      razon_social: data.razon_social,
-      direccion: data.direccion,
-      estado: data.estado,
+      razon_social: this.toTitleCase(data.razon_social),
+      direccion: this.toTitleCase(data.direccion),
+      estado: this.toTitleCase(data.estado),
     };
+  }
+
+  /**
+   * Convierte texto a formato título (primera letra de cada palabra en mayúscula)
+   */
+  private toTitleCase(text: string): string {
+    if (!text) return text;
+    
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => {
+        if (word.length === 0) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ');
   }
 }
