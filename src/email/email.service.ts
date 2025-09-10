@@ -13,7 +13,7 @@ export class EmailService {
   private readonly defaultFrom: string;
 
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: 'email-smtp.us-east-2.amazonaws.com',
       port: 587, // Cambiar de 465 a 587
       secure: false, // false para puerto 587
