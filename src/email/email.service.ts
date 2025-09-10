@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { envs } from '../config/envs';
 import {
   EmailOptions,
@@ -9,24 +9,15 @@ import {
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly transporter: nodemailer.Transporter;
+  private readonly sesClient: SESClient;
   private readonly defaultFrom: string;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: 'email-smtp.us-east-2.amazonaws.com',
-      port: 587, // Cambiar de 465 a 587
-      secure: false, // false para puerto 587
-      requireTLS: true, // Forzar TLS
-      connectionTimeout: 60000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000,
-      auth: {
-        user: envs.AWS_SES_SMTP_USERNAME,
-        pass: envs.AWS_SES_SMTP_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false,
+    this.sesClient = new SESClient({
+      region: envs.AWS_REGION,
+      credentials: {
+        accessKeyId: envs.AWS_ACCESS_KEY_ID,
+        secretAccessKey: envs.AWS_SECRET_ACCESS_KEY,
       },
     });
 
@@ -58,38 +49,54 @@ export class EmailService {
         throw new Error('Debe proporcionar al menos "text" o "html"');
       }
 
-      const toAddresses = Array.isArray(to) ? to.join(', ') : to;
-      const ccAddresses = cc
-        ? Array.isArray(cc)
-          ? cc.join(', ')
-          : cc
-        : undefined;
-      const bccAddresses = bcc
-        ? Array.isArray(bcc)
-          ? bcc.join(', ')
-          : bcc
-        : undefined;
+      const toAddresses = Array.isArray(to) ? to : [to];
+      const ccAddresses = cc ? (Array.isArray(cc) ? cc : [cc]) : undefined;
+      const bccAddresses = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : undefined;
 
-      const mailOptions: nodemailer.SendMailOptions = {
-        from: from,
-        to: toAddresses,
-        cc: ccAddresses,
-        bcc: bccAddresses,
-        subject: subject,
-        text: text,
-        html: html,
-        replyTo: replyTo,
+      const params = {
+        Source: from,
+        Destination: {
+          ToAddresses: toAddresses,
+          CcAddresses: ccAddresses,
+          BccAddresses: bccAddresses,
+        },
+        Message: {
+          Subject: {
+            Data: subject,
+            Charset: 'UTF-8',
+          },
+          Body: {
+            Text: text
+              ? {
+                  Data: text,
+                  Charset: 'UTF-8',
+                }
+              : undefined,
+            Html: html
+              ? {
+                  Data: html,
+                  Charset: 'UTF-8',
+                }
+              : undefined,
+          },
+        },
+        ReplyToAddresses: replyTo
+          ? Array.isArray(replyTo)
+            ? replyTo
+            : [replyTo]
+          : undefined,
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
+      const command = new SendEmailCommand(params);
+      const result = await this.sesClient.send(command);
 
       this.logger.log(
-        `Email sent successfully to ${toAddresses} with MessageId: ${result.messageId}`,
+        `Email sent successfully to ${toAddresses.join(', ')} with MessageId: ${result.MessageId}`,
       );
 
       return {
         success: true,
-        messageId: result.messageId,
+        messageId: result.MessageId,
       };
     } catch (error) {
       this.logger.error(`Failed to send email: ${error.message}`, error.stack);
@@ -103,11 +110,15 @@ export class EmailService {
 
   async verifyConfiguration(): Promise<boolean> {
     try {
-      await this.transporter.verify();
-      this.logger.log('SMTP configuration is valid');
+      // Test SES configuration by attempting to get sending quota
+      const { GetSendQuotaCommand } = await import('@aws-sdk/client-ses');
+      const command = new GetSendQuotaCommand({});
+      await this.sesClient.send(command);
+
+      this.logger.log('AWS SES configuration is valid');
       return true;
     } catch (error) {
-      this.logger.error('SMTP configuration error:', error.message);
+      this.logger.error('AWS SES configuration error:', error.message);
       return false;
     }
   }
