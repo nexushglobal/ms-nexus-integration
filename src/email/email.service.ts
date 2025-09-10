@@ -15,11 +15,17 @@ export class EmailService {
   constructor() {
     this.transporter = nodemailer.createTransport({
       host: 'email-smtp.us-east-2.amazonaws.com',
-      port: 587,
-      secure: false,
+      port: 465,
+      secure: true,
+      connectionTimeout: 60000, // 60 seconds
+      greetingTimeout: 30000, // 30 seconds
+      socketTimeout: 60000, // 60 seconds
       auth: {
         user: envs.AWS_SES_SMTP_USERNAME,
         pass: envs.AWS_SES_SMTP_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: false, // Only if needed for corporate networks
       },
     });
 
